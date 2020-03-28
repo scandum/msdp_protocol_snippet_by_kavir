@@ -179,6 +179,7 @@ typedef enum
 
    /* World */
    eMSDP_AREA_NAME, 
+   eMSDP_ROOM,
    eMSDP_ROOM_EXITS, 
    eMSDP_ROOM_NAME, 
    eMSDP_ROOM_VNUM, 
@@ -479,6 +480,14 @@ void MSDPSetString( descriptor_t *apDescriptor, variable_t aMSDP, const char *ap
  * MSDPSetTable( d, eMSDP_TEST, Buffer );
  */
 void MSDPSetTable( descriptor_t *apDescriptor, variable_t aMSDP, const char *apValue );
+
+/* Function: MSDPSendTable
+ *
+ * Works like MSDPSetTable, but the data is sent instantly. Useful for
+ * automappers, comm channels, etc.
+ */
+
+void MSDPSendTable( descriptor_t *apDescriptor, variable_t aMSDP, const char *apValue );
 
 /* Function: MSDPSetArray
  *

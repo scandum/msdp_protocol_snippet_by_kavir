@@ -603,3 +603,9 @@ Version 8 (28-Oct-2012)
 * The Negotiated[] array wasn't being initialised.  Fixed.
 
 * Added exp max/tnl to the ROM installation instructions.
+
+Version 8 (28-March-2020)
+
+* Added MSDPSendTable to send instant MSDP updates, for automapping support.
+
+* Added MTTS handling for detecting ANSI, 256 colors, and UTF-8 support.

@@ -151,6 +151,8 @@ void msdp_update( void )
             if ( pRoom && pRoom->vnum != d->pProtocol->pVariables[eMSDP_ROOM_VNUM]->ValueInt )
             {
                 EXIT_DATA *pexit;
+                char *ptb; /* Pointer to buf */
+
                 buf[0] = '\0';
                 for ( pexit = ch->in_room->first_exit; pexit; pexit = pexit->next )
                 {
@@ -193,6 +195,32 @@ void msdp_update( void )
                 MSDPSetString( d, eMSDP_ROOM_NAME, pRoom->name );
                 MSDPSetTable( d, eMSDP_ROOM_EXITS, buf );
                 MSDPSetNumber( d, eMSDP_ROOM_VNUM, pRoom->vnum );
+
+                ptb = buf;
+
+                ptb += sprintf(ptb, "%c", MSDP_TABLE_OPEN);
+
+                for ( pexit = ch->in_room->first_exit; pexit; pexit = pexit->next )
+                {
+                    if ( pexit->to_room
+                    && (!IS_SET(pexit->exit_info, EX_WINDOW)
+                    ||   IS_SET(pexit->exit_info, EX_ISDOOR))
+                    &&  !IS_SET(pexit->exit_info, EX_SECRET)
+                    &&  !IS_SET(pexit->exit_info, EX_HIDDEN)
+                    &&  !IS_SET(pexit->exit_info, EX_DIG) )
+                    {
+                        ptb += sprintf(ptb, "\001%s\002%d", dir_name[pexit->vdir], pexit->vnum);
+                }
+
+                ptb += sprintf(ptb, "%c", MSDP_TABLE_CLOSE);
+
+                ptb += sprintf(ptb, "\001%s\002%d\001%s\002%s\001%s\002%s\001%s\002%s",
+                        "VNUM", pRoom->vnum,
+                        "NAME", pRoom->name,
+                        "AREA", pRoom->area->name,
+                        "TERRAIN", sector_table[pRoom->sector_type].name);
+
+                MSDPSendTable( d, eMSDP_ROOM, buf );
             }
 /*
             MSDPSetNumber( d, eMSDP_WORLD_TIME,  );

@@ -145,6 +145,7 @@ void msdp_update( void )
             /* Only update room stuff if they've changed room */
             if ( pRoom && pRoom->vnum != d->pProtocol->pVariables[eMSDP_ROOM_VNUM]->ValueInt )
             {
+                char *ptb; /* Pointer to buf */
                 int i; /* Loop counter */
                 buf[0] = '\0';
 
@@ -173,6 +174,28 @@ void msdp_update( void )
                 MSDPSetString( d, eMSDP_ROOM_NAME, pRoom->name );
                 MSDPSetTable( d, eMSDP_ROOM_EXITS, buf );
                 MSDPSetNumber( d, eMSDP_ROOM_VNUM, pRoom->vnum );
+
+                ptb = buf;
+
+                ptb += sprintf(ptb, "%c", MSDP_TABLE_OPEN);
+
+                for ( i = DIR_NORTH; i <= DIR_DOWN; ++i )
+                {
+                        if ( pRoom->exit[i] != NULL )
+                        {
+                                ptb += sprintf(ptb, "\001%s\002%d", dir_name[i], pRoom->exit[i]->vnum);
+                        }
+                }
+
+                ptb += sprintf(ptb, "%c", MSDP_TABLE_CLOSE);
+
+                ptb += sprintf(ptb, "\001%s\002%d\001%s\002%s\001%s\002%s\001%s\002%s",
+                        "VNUM", pRoom->vnum,
+                        "NAME", pRoom->name,
+                        "AREA", pRoom->area->name,
+                        "TERRAIN", sector_table[pRoom->sector_type].name);
+
+                MSDPSendTable( d, eMSDP_ROOM, buf );
             }
 /*
             MSDPSetNumber( d, eMSDP_WORLD_TIME, d->character-> );
