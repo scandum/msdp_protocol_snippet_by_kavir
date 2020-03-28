@@ -1,0 +1,369 @@
+/******************************************************************************
+ Protocol snippet by KaVir.  Released into the Public Domain in February 2011.
+ ******************************************************************************/
+
+/***************************************************************************
+ * File: protocol.h
+ * 
+ * Update the MUD_NAME and descriptor_t for TBA.
+ ***************************************************************************/
+
+#define MUD_NAME "tbaMUD"
+
+typedef struct descriptor_data descriptor_t;
+
+/***************************************************************************
+ * File: protocol.c
+ * 
+ * Update the Write(), ReportBug() and InfoMessage() functions for TBA.
+ ***************************************************************************/
+
+static void Write( descriptor_t *apDescriptor, const char *apData )
+{
+   if ( apDescriptor != NULL && apDescriptor->has_prompt )
+   {
+      if ( apDescriptor->pProtocol->WriteOOB > 0 || 
+         *(apDescriptor->output) == '\0' )
+      {
+         apDescriptor->pProtocol->WriteOOB = 2;
+      }
+   }
+
+   write_to_output( apDescriptor, apData );
+}
+
+static void ReportBug( const char *apText )
+{
+   log( apText );
+}
+
+static void InfoMessage( descriptor_t *apDescriptor, const char *apData )
+{
+   Write( apDescriptor, "\t[F210][\toINFO\t[F210]]\tn " );
+   Write( apDescriptor, apData );
+   apDescriptor->pProtocol->WriteOOB = 0;
+}
+
+/***************************************************************************
+ * File: structs.h
+ * 
+ * Add protocol.h to the top to get it working.  Move it to the c files when 
+ * you tidy up.
+ ***************************************************************************/
+
+#include "protocol.h"
+
+/***************************************************************************
+ * File: structs.h
+ * 
+ * Add the protocol pointer to the end of the descriptor_data structure.
+ ***************************************************************************/
+
+struct descriptor_data
+{
+  socket_t descriptor;      /**< file descriptor for socket */      ?c
+  char host[HOST_LENGTH+1]; /**< hostname */      r system
+  byte bad_pws;             /**< number of bad pw attemps this login */
+
+  ...
+
+  struct descriptor_data *snoop_by; /**< And who is snooping this char  */
+  struct descriptor_data *next;     /**< link to next descriptor */
+  struct oasis_olc_data *olc;       /**< OLC info */
+
+  protocol_t *pProtocol; /* <--- Add this line */
+};
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Add msdp_update() to the list of local functions near the top of the file.
+ ***************************************************************************/
+
+/* Webster Dictionary Lookup functions */
+static RETSIGTYPE websterlink(int sig);
+static size_t proc_colors(char *txt, size_t maxlen, int parse);
+static void handle_webster_file();
+
+static void msdp_update(void); /* <--- Add this line */
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Add the new msdp_update() function.
+ ***************************************************************************/
+
+static void msdp_update( void )
+{
+  struct descriptor_data *d;
+  int PlayerCount = 0;
+  char buf[MAX_STRING_LENGTH];
+  extern const char *pc_class_types[];
+
+  for (d = descriptor_list; d; d = d->next)
+  {
+    struct char_data *ch = d->character;
+    if ( ch && !IS_NPC(ch) && d->connected == CON_PLAYING )
+    {
+      struct char_data *pOpponent = FIGHTING(ch);
+      ++PlayerCount;
+
+      MSDPSetString( d, eMSDP_CHARACTER_NAME, GET_NAME(ch) );
+      MSDPSetNumber( d, eMSDP_ALIGNMENT, GET_ALIGNMENT(ch) );
+      MSDPSetNumber( d, eMSDP_EXPERIENCE, GET_EXP(ch) );
+
+      MSDPSetNumber( d, eMSDP_HEALTH, GET_HIT(ch) );
+      MSDPSetNumber( d, eMSDP_HEALTH_MAX, GET_MAX_HIT(ch) );
+      MSDPSetNumber( d, eMSDP_LEVEL, GET_LEVEL(ch) );
+
+      sprinttype( ch->player.chclass, pc_class_types, buf, sizeof(buf) );
+      MSDPSetString( d, eMSDP_CLASS, buf );
+
+      MSDPSetNumber( d, eMSDP_MANA, GET_MANA(ch) );
+      MSDPSetNumber( d, eMSDP_MANA_MAX, GET_MAX_MANA(ch) );
+      MSDPSetNumber( d, eMSDP_WIMPY, GET_WIMP_LEV(ch) );
+      MSDPSetNumber( d, eMSDP_MONEY, GET_GOLD(ch) );
+      MSDPSetNumber( d, eMSDP_MOVEMENT, GET_MOVE(ch) );
+      MSDPSetNumber( d, eMSDP_MOVEMENT_MAX, GET_MAX_MOVE(ch) );
+      MSDPSetNumber( d, eMSDP_AC, compute_armor_class(ch) );
+
+      /* This would be better moved elsewhere */
+      if ( pOpponent != NULL )
+      {
+          int hit_points = (GET_HIT(pOpponent) * 100) / GET_MAX_HIT(pOpponent);
+          MSDPSetNumber( d, eMSDP_OPPONENT_HEALTH, hit_points );
+          MSDPSetNumber( d, eMSDP_OPPONENT_HEALTH_MAX, 100 );
+          MSDPSetNumber( d, eMSDP_OPPONENT_LEVEL, GET_LEVEL(pOpponent) );
+          MSDPSetString( d, eMSDP_OPPONENT_NAME, PERS(pOpponent, ch) );
+      }
+      else /* Clear the values */
+      {
+          MSDPSetNumber( d, eMSDP_OPPONENT_HEALTH, 0 );
+          MSDPSetNumber( d, eMSDP_OPPONENT_LEVEL, 0 ); 
+          MSDPSetString( d, eMSDP_OPPONENT_NAME, "" ); 
+      }
+
+      MSDPUpdate( d );
+    }
+
+    /* Ideally this should be called once at startup, and again whenever
+     * someone leaves or joins the mud.  But this works, and it keeps the
+     * snippet simple.  Optimise as you see fit.
+     */
+    MSSPSetPlayers( PlayerCount );
+  }
+}
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Call msdp_update() from within the heartbeat() function.
+ * 
+ * You can add a 1 second PULSE_MSDP to structs.h if you prefer.
+ ***************************************************************************/
+
+  if (!(heart_pulse % PULSE_VIOLENCE))
+    perform_violence();
+
+  if (!(heart_pulse % PASSES_PER_SEC))
+    msdp_update();
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Initialise the protocol data in the init_descriptor() function.
+ ***************************************************************************/
+
+  CREATE(newd->history, char *, HISTORY_SIZE);
+  if (++last_desc == 1000)
+    last_desc = 1;
+  newd->desc_num = last_desc;
+  newd->pProtocol = ProtocolCreate(); /* <--- Add this line */
+}
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Perform the negotiation in the new_descriptor() function.
+ ***************************************************************************/
+
+  /* initialize descriptor data */
+   init_descriptor(newd, desc);
+
+  /* prepend to list */
+  newd->next = descriptor_list;
+  descriptor_list = newd;
+
+  ProtocolNegotiate(newd); /* <--- Add this line */
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Free the protocol data at the end of the close_socket() function.
+ ***************************************************************************/
+
+  if (d->showstr_head)
+    free(d->showstr_head);
+  if (d->showstr_count)
+    free(d->showstr_vector);
+
+  ProtocolDestroy( d->pProtocol ); /* <--- Add this line */
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Change process_input() to parse negotiation sequences.
+ ***************************************************************************/
+
+static int process_input(struct descriptor_data *t)
+{
+  int buf_length, failed_subst;
+  ssize_t bytes_read;
+  size_t space_left;
+  char *ptr, *read_point, *write_point, *nl_pos = NULL;
+  char tmp[MAX_INPUT_LENGTH];
+
+  static char read_buf[MAX_PROTOCOL_BUFFER]; /* <--- Add this line */
+  read_buf[0] = '\0';                        /* <--- Add this line */
+
+Now divert the input by replacing this:
+
+    bytes_read = perform_socket_read(t->descriptor, read_point, space_left);
+
+With this:
+
+    bytes_read = perform_socket_read(t->descriptor, read_buf, MAX_PROTOCOL_BUFFER);
+
+    if ( bytes_read >= 0 )
+    {
+      read_buf[bytes_read] = '\0';
+      ProtocolInput( t, read_buf, bytes_read, read_point );
+      bytes_read = strlen(read_point);
+    }
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Change vwrite_to_output.
+ ***************************************************************************/
+
+Near the beginning of the function, add this:
+
+  wantsize = size = vsnprintf(txt, sizeof(txt), format, args);
+
+  strcpy(txt, ProtocolOutput( t, txt, (int*)&wantsize )); /* <--- Add this line */
+  size = wantsize;                    /* <--- Add this line */
+  if ( t->pProtocol->WriteOOB > 0 )   /* <--- Add this line */
+    --t->pProtocol->WriteOOB;         /* <--- Add this line */
+
+  if (t->character)
+    wantsize = size = proc_colors(txt, sizeof(txt), COLOR_ON(t->character));
+
+/***************************************************************************
+ * File: comm.c
+ * 
+ * Change process_output() to avoid sending a prompt after sending OOB data.
+ ***************************************************************************/
+
+Add the following three WriteOOB checks:
+
+  /* add the extra CRLF if the person isn't in compact mode */
+  if (STATE(t) == CON_PLAYING && t->character && !IS_NPC(t->character) && !PRF_FLAGGED(t->character, PRF_COMPACT))
+    if ( !t->pProtocol->WriteOOB )                 /* <--- Add this line */
+      strcat(osb, "\r\n");      /* strcpy: OK (osb:MAX_SOCK_BUF-2 reserves space) */
+
+  /* add a prompt */
+  if ( !t->pProtocol->WriteOOB )                   /* <--- Add this line */
+    strcat(i, make_prompt(t));  /* strcpy: OK (i:MAX_SOCK_BUF reserves space) */
+
+  /* now, send the output.  If this is an 'interruption', use the prepended
+   * CRLF, otherwise send the straight output sans CRLF. */
+  if (t->has_prompt && !t->pProtocol->WriteOOB) {  /* <--- Update this line */
+    t->has_prompt = FALSE;
+    result = write_to_descriptor(t->descriptor, i);
+    if (result >= 2)
+      result -= 2;
+  } else
+    result = write_to_descriptor(t->descriptor, osb);
+
+/***************************************************************************
+ * File: interpreter.c
+ * 
+ * Send the <VERSION> tag at the end of the enter_player_game() function.
+ ***************************************************************************/
+
+    MXPSendTag( d, "<VERSION>" );  /* <--- Add this line */
+
+    return load_result;
+}
+
+/***************************************************************************
+ * File: act_wizard.c
+ * 
+ * Remove the tabs from the list_llog_entries() function.
+ ***************************************************************************/
+
+The \t are tabs, they need to be replaced with something else (like spaces):
+
+  while(!feof(fp)) {
+    send_to_char(ch, "%10s\t%d\t%s\t%s", llast.username, llast.punique,
+        last_array[llast.close_type], ctime(&llast.time));
+    i = fread(&llast, sizeof(struct last_entry), 1, fp);
+  }
+
+For example:
+
+  while(!feof(fp)) {
+    send_to_char(ch, "%10s %d %s %s", llast.username, llast.punique,
+        last_array[llast.close_type], ctime(&llast.time));
+    i = fread(&llast, sizeof(struct last_entry), 1, fp);
+  }
+
+/***************************************************************************
+ * File: utils.c
+ * 
+ * Make sure string formatting properly handles MXP/colour/unicode.
+ ***************************************************************************/
+
+Add the following macro at the top of the utils.c file:
+
+  #define isspace_ignoretabs(c) ((c)!='\t' && isspace(c))
+
+Then in the strfrmt() function, replace every instance of isspace() with 
+isspace_ignoretabs().  This will prevent tabs from being discarded.
+
+Immediately after this section of code within strfrmt():
+
+      } else if (*sp=='`'||*sp=='$'||*sp=='#'||*sp=='@') {
+        if (sp[1] && (sp[1]==*sp))
+          wlen++; /* One printable char here */
+        if (*sp=='@' && (sp[1]!=*sp)) /* Color code, not @@ */
+          last_color = sp[1];
+        sp += 2; /* Eat the whole code regardless */
+
+Add the following:
+
+      } else if (*sp=='\t'&&sp[1]) {
+        char MXPcode = sp[1]=='[' ? ']' : sp[1]=='<' ? '>' : '\0';
+        sp += 2; /* Eat the code */
+        if (MXPcode)
+        {
+           while (*sp!='\0'&&*sp!=MXPcode)
+             ++sp; /* Eat the rest of the code */
+        }
+
+/***************************************************************************
+ * File: comm.c and interpreter.c
+ * 
+ * Use the new function for switching ECHO on and off.
+ ***************************************************************************/
+
+Replace all calls to the echo_off() function with the following:
+
+  ProtocolNoEcho( d, true );
+
+Replace all calls to the echo_on() function with the following:
+
+  ProtocolNoEcho( d, false );
+
+The old echo_off() and echo_on() functions in comm.c can be removed.
