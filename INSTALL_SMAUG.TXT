@@ -210,6 +210,7 @@ void msdp_update( void )
                     &&  !IS_SET(pexit->exit_info, EX_DIG) )
                     {
                         ptb += sprintf(ptb, "\001%s\002%d", dir_name[pexit->vdir], pexit->vnum);
+                    }
                 }
 
                 ptb += sprintf(ptb, "%c", MSDP_TABLE_CLOSE);

@@ -604,7 +604,7 @@ Version 8 (28-Oct-2012)
 
 * Added exp max/tnl to the ROM installation instructions.
 
-Version 8 (28-March-2020)
+Version 9 (28-March-2020)
 
 * Added MSDPSendTable to send instant MSDP updates, for automapping support.
 

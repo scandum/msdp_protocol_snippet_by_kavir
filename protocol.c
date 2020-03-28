@@ -1436,6 +1436,47 @@ void MSDPSetTable( descriptor_t *apDescriptor, variable_t aMSDP, const char *apV
    }
 }
 
+void MSDPSendTable( descriptor_t *apDescriptor, variable_t aMSDP, const char *apValue )
+{
+   protocol_t *pProtocol = apDescriptor ? apDescriptor->pProtocol : NULL;
+
+   if ( pProtocol != NULL && apValue != NULL )
+   {
+      if ( *apValue == '\0' )
+      {
+         /* It's easier to call MSDPSetString if the value is empty */
+         MSDPSetString(apDescriptor, aMSDP, apValue);
+      }
+      else if ( VariableNameTable[aMSDP].bString )
+      {
+         const char MsdpTableStart[] = { (char)MSDP_TABLE_OPEN, '\0' };
+         const char MsdpTableStop[]  = { (char)MSDP_TABLE_CLOSE, '\0' };
+
+         char *pTable = (char *) malloc(strlen(apValue) + 3); /* 3: START, STOP, NUL */
+
+         strcpy(pTable, MsdpTableStart);
+         strcat(pTable, apValue);
+         strcat(pTable, MsdpTableStop);
+
+         if ( strcmp(pProtocol->pVariables[aMSDP]->pValueString, pTable) )
+         {
+            free(pProtocol->pVariables[aMSDP]->pValueString);
+            pProtocol->pVariables[aMSDP]->pValueString = pTable;
+            pProtocol->pVariables[aMSDP]->bDirty = false;
+
+            if ( pProtocol->pVariables[aMSDP]->bReport )
+            {
+               MSDPSend( apDescriptor, (variable_t) aMSDP );
+            }
+         }
+         else /* Just discard the table, we've already got one */
+         {
+            free(pTable);
+         }
+      }
+   }
+}
+
 void MSDPSetArray( descriptor_t *apDescriptor, variable_t aMSDP, const char *apValue )
 {
    protocol_t *pProtocol = apDescriptor ? apDescriptor->pProtocol : NULL;
