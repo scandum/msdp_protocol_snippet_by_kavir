@@ -177,15 +177,15 @@ void msdp_update( void )
 
                 ptb = buf;
 
-                ptb += sprintf(ptb, "%c", MSDP_TABLE_OPEN);
+		ptb += sprintf(ptb, "\001EXITS\002%c", MSDP_TABLE_OPEN);
 
-                for ( i = DIR_NORTH; i <= DIR_DOWN; ++i )
-                {
-                        if ( pRoom->exit[i] != NULL )
-                        {
-                                ptb += sprintf(ptb, "\001%s\002%d", dir_name[i], pRoom->exit[i]->vnum);
-                        }
-                }
+		for ( i = DIR_NORTH; i <= DIR_DOWN; ++i )
+		{
+			if ( pRoom->exit[i] != NULL && pRoom->exit[i]->u1.to_room != NULL && pRoom->exit[i]->u1.vnum != -1)
+			{
+				ptb += sprintf(ptb, "\001%s\002%d", dir_name[i], pRoom->exit[i]->u1.to_room->vnum);
+			}
+		}
 
                 ptb += sprintf(ptb, "%c", MSDP_TABLE_CLOSE);
 

@@ -172,7 +172,7 @@ void msdp_update( void )
 
 		ptb = buf;
 
-		ptb += sprintf(ptb, "%c", MSDP_TABLE_OPEN);
+		ptb += sprintf(ptb, "\001EXITS\002%c", MSDP_TABLE_OPEN);
 
 		for ( i = DIR_NORTH; i <= DIR_DOWN; ++i )
 		{
